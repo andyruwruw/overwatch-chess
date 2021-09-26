@@ -1,0 +1,15 @@
+{
+  "Heros": {
+    "General": {
+    }
+  },
+  "Modes": {
+    "All": {
+      "Game Mode Start": "Immediately"
+    },
+    "Skirmish": {
+      "Enabled": true,
+      "Enabled Maps": ["Workshop Island"]
+    }
+  }
+}

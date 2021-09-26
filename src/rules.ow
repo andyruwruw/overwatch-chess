@@ -1,0 +1,423 @@
+settings
+{
+	main
+	{
+		Description: "Play chess with Overwatch heros!"
+	}
+
+	lobby
+	{
+		Max Spectators: 12
+		Max Team 1 Players: 1
+		Max Team 2 Players: 1
+		Swap Teams After Match: No
+	}
+
+	modes
+	{
+		Team Deathmatch
+		{
+			Game Length In Minutes: 15
+			Mercy Resurrect Counteracts Kills: Off
+			Score To Win: 200
+
+			enabled maps
+			{
+				Workshop Island
+			}
+		}
+
+		General
+		{
+			Allow Hero Switching: Off
+			Enemy Health Bars: Off
+			Game Mode Start: Immediately
+			Hero Limit: Off
+			Respawn Time Scalar: 45%
+		}
+	}
+
+	heroes
+	{
+		General
+		{
+			Doomfist
+			{
+				Damage Dealt: 10%
+				Damage Received: 10%
+				Rising Uppercut Knockback Scalar: 50%
+				Rocket Punch Knockback Scalar: 50%
+				Ultimate Duration: 25%
+				Ultimate Generation - Combat Meteor Strike: 0%
+				Ultimate Generation - Passive Meteor Strike: 0%
+				Ultimate Generation Meteor Strike: 10%
+			}
+
+			enabled heroes
+			{
+				Doomfist
+			}
+		}
+	}
+
+	extensions
+	{
+		Beam Effects
+		Energy Explosion Effects
+		Kinetic Explosion Effects
+		Explosion Sounds
+		Play More Effects
+		Spawn More Dummy Bots
+	}
+}
+
+variables
+{
+  global:
+    0: Register
+		1: Index
+		// [ TopLeftVector, TileSize ]
+		2: Constants
+		3: Game
+		4: Board
+		5: f
+		6: g
+		7: h
+		8: i
+		9: j
+		10: k
+		11: l
+		12: m
+		13: n
+    14: o
+		15: p
+		16: q
+		17: r
+		18: s
+		19: t
+		20: u
+		21: v
+    22: w
+    23: x
+		24: y
+    25: z
+  player:
+    0: a
+		1: b
+		2: c
+		3: d
+		4: e
+		5: f
+		6: g
+		7: h
+		8: i
+		9: j
+		10: k
+		11: l
+		12: m
+		13: n
+    14: o
+		15: p
+		16: q
+		17: r
+		18: s
+		19: t
+		20: u
+		21: v
+    22: w
+    23: x
+		24: y
+    25: z
+}
+
+subroutines
+{
+	0: StartTopDownCamera
+	1: CreateGame
+	2: CreatePiece
+	3: d
+	4: e
+	5: f
+	6: g
+	7: h
+}
+
+// Inicialization of Variables
+rule("Initialize")
+{
+	event
+	{
+		Player Joined Match;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		(Global.Register == Null) == True;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Announcer;
+		Disable Built-In Game Mode Completion;
+		Global.Register = Empty Array;
+		Global.Constants = Empty Array;
+		Global.Game = Empty Array;
+
+		// Top Left Vector
+		Modify Global Variable(Constants, Append To Array, Vector(15.55, 0, 15.55));
+		// Tiles Size
+		Modify Global Variable(Constants, Append To Array, -3.7);
+
+		Call Subroutine(CreateGame);
+	}
+}
+
+//
+// General Rules
+//
+
+// Applies player specific rules.
+rule("Player Joined")
+{
+	event
+	{
+		Player Joined Match;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Call Subroutine(StartTopDownCamera);
+	}
+}
+
+// Disables players from inflicting damage.
+rule("Disable Damage")
+{
+	event
+	{
+		Player Dealt Damage;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Set Damage Dealt(Event Player, 0);
+	}
+}
+
+// Prevents player from jumping off of the island
+rule("Out of Bounds")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Y Component Of(Position Of(Event Player)) <= -5;
+	}
+
+	actions
+	{
+		Set Facing(Event Player, Direction Towards(Eye Position(Event Player), Vector(0, 35, 0)), To World);
+		Apply Impulse(Event Player, Direction Towards(Event Player, Vector(0, 20, 0)), 40, To World, Cancel Contrary Motion);
+		Set Status(Event Player, Null, Stunned, 2.200);
+	}
+}
+
+//
+// Scenes
+//
+
+// Creates a Game Scene
+rule("Create Game")
+{
+	event
+	{
+		Subroutine;
+		CreateGame;
+	}
+
+	actions
+	{
+		Global.Board = Empty Array;
+
+		// 1 White Pawn, 2 White Knight, 3 White Bishop, 4 White Rook, 5 White Queen, 6 White King,
+		// 7 Black Pawn, 8 Black Knight, 9 Black Bishop, 10 Black Rook, 11 Black Queen, 12 Black King, 
+		Modify Global Variable(Board, Append To Array, 10);
+		Modify Global Variable(Board, Append To Array, 8);
+		Modify Global Variable(Board, Append To Array, 9);
+		Modify Global Variable(Board, Append To Array, 11);
+		Modify Global Variable(Board, Append To Array, 12);
+		Modify Global Variable(Board, Append To Array, 9);
+		Modify Global Variable(Board, Append To Array, 8);
+		Modify Global Variable(Board, Append To Array, 10);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 7);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 0);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 1);
+		Modify Global Variable(Board, Append To Array, 4);
+		Modify Global Variable(Board, Append To Array, 2);
+		Modify Global Variable(Board, Append To Array, 3);
+		Modify Global Variable(Board, Append To Array, 5);
+		Modify Global Variable(Board, Append To Array, 6);
+		Modify Global Variable(Board, Append To Array, 3);
+		Modify Global Variable(Board, Append To Array, 2);
+		Modify Global Variable(Board, Append To Array, 4);
+
+		For Global Variable(Index, 0, Count Of(Global.Board), 1);
+			// Column
+			Global.Register[0] = Global.Index;
+			If (Global.Register[0] > 7);
+				Global.Register[0] %= 8;
+			End;
+			// Row
+			Global.Register[1] = Round To Integer(Global.Index / 8, Down);
+			
+			// Hero
+			Global.Register[2] = Global.Board[Global.Index];
+
+			Call Subroutine(CreatePiece);
+		End;
+	}
+}
+
+// Creates a piece
+// Register[0]: Row, Register[1]: Column, Register[2]: Hero/Team
+rule("Create Piece")
+{
+	event
+	{
+		Subroutine;
+		CreatePiece;
+	}
+
+	actions
+	{
+		// Abort if Empty
+		Abort If(Global.Register[2] == 0);
+
+		// Determine Hero
+		// 1 White Pawn, 2 White Knight, 3 White Bishop, 4 White Rook, 5 White Queen, 6 White King,
+		// 7 Black Pawn, 8 Black Knight, 9 Black Bishop, 10 Black Rook, 11 Black Queen, 12 Black King, 
+		If (Global.Register[2] == 1 || Global.Register[2] == 7);
+			Global.Register[3] = Hero(McCree);
+		Else If (Global.Register[2] == 2 || Global.Register[2] == 8);
+			Global.Register[3] = Hero(Winston);
+		Else If (Global.Register[2] == 3 || Global.Register[2] == 5);
+			Global.Register[3] = Hero(Widowmaker);
+		Else If (Global.Register[2] == 4 || Global.Register[2] == 10);
+			Global.Register[3] = Hero(Reinhardt);
+		Else If (Global.Register[2] == 5 || Global.Register[2] == 5);
+			Global.Register[3] = Hero(Roadhog);
+		Else If (Global.Register[2] == 5 || Global.Register[2] == 5);
+			Global.Register[3] = Hero(Roadhog);
+		Else If (Global.Register[2] == 6|| Global.Register[2] == 12);
+			Global.Register[3] = Hero(Orisa);
+		End;
+
+		// Determine team
+		If (Global.Register[2] <= 6);
+			Create Dummy Bot(
+				Global.Register[3],
+				Team 1,
+				-1,
+				Vector(
+					X Component Of(Global.Constants[0]) + Global.Constants[1] / 2 + Global.Constants[1] * Global.Register[0],
+					0,
+					Z Component Of(Global.Constants[0]) + Global.Constants[1] / 2 + Global.Constants[1] * Global.Register[1]),
+					Vector(0, 0, 10));
+		Else;
+			Create Dummy Bot(
+				Global.Register[3],
+				Team 2,
+				-1,
+				Vector(
+					X Component Of(Global.Constants[0]) + Global.Constants[1] / 2 + Global.Constants[1] * Global.Register[0],
+					0,
+					Z Component Of(Global.Constants[0]) + Global.Constants[1] / 2 + Global.Constants[1] * Global.Register[1]),
+					Vector(0, 0, 10));
+		End;
+	}
+}
+
+// Starts player's top-down camera
+rule("Start Top-Down Camera")
+{
+	event
+	{
+		Subroutine;
+		StartTopDownCamera;
+	}
+
+	actions
+	{
+		Start Camera(Event Player, Vector(0, 35, 0), Vector(0, 0, 0), 1);
+	}
+}
+
+// rule("Start Turn")
+// {
+// 	event
+// 	{
+
+// 	}
+
+// 	actions
+// 	{
+// 		Create HUD Text(Event Player, Custom String("Player {0}'s Turn", Global.PlayerTurn), Null, Null, Top, 0, Color(White), Color(
+// 			White), Color(White), Visible To and String, Default Visibility);
+// 	}
+// }
