@@ -1,0 +1,63 @@
+variables
+{
+	global:
+		0: Stack
+		1: StackLabels
+		2: StackPointer
+		3: FramePointer
+}
+
+rule("Global Scope")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		// Inicializing Call Stack
+		Global.Stack = Empty Array;
+		Global.StackLabels = Empty Array;
+		Global.StackPointer = 0;
+		Global.FramePointer = Empty Array;
+
+		// Starting at Global Scope
+		Modify Global Variable(FramePointer, Append To Array, 0);
+
+		// Adding variable1
+		Global.Stack[Global.StackPointer] = 1;
+		Global.StackLabels[Global.StackPointer] = Custom String("variable1");
+		Global.StackPointer += 1;
+
+		// Calling subroutine
+		Call Subroutine(Sub0);
+	}
+}
+
+rule("SubroutineScope")
+{
+	event
+	{
+		Subroutine;
+		Sub0;
+	}
+
+	actions
+	{
+    // Changing Frame Pointer to new Scope
+		Modify Global Variable(FramePointer, Append To Array, Global.StackPointer);
+
+    // Adding variable1
+		Global.Stack[Global.StackPointer] = 1;
+		Global.StackLabels[Global.StackPointer] = Custom String("variable1");
+		Global.StackPointer += 1;
+
+    // Altering variable1 limited to scope (prevents picking up on variables before the frame pointer or after the stack pointer)
+		Global.Stack[Index Of Array Value(Array Slice(Global.StackLabels, Last Of(Global.FramePointer), Global.StackPointer - Last Of(
+			Global.FramePointer)), Custom String("variable1")) + Last Of(Global.FramePointer)] = 0;
+
+    // Returning to previous scope
+    Modify Global Variable(FramePointer, Remove From Array By Index, Count Of(Global.FramePointer) - 1);
+	}
+}

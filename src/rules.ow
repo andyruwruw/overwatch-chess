@@ -2,7 +2,7 @@ settings
 {
 	main
 	{
-		Description: "Play chess with Overwatch heros!"
+		Description: "Play Chess in Overwatch!"
 	}
 
 	lobby
@@ -74,11 +74,10 @@ settings
 variables
 {
   global:
-    0: Register
-		1: Index
-		// [ TopLeftVector, TileSize ]
-		2: Constants
-		3: Game
+		0: Stack
+		1: StackLabels
+		2: StackScopePointer
+		3: Index
 		4: Board
 		5: f
 		6: g
@@ -154,21 +153,23 @@ rule("Initialize")
 
 	conditions
 	{
-		(Global.Register == Null) == True;
+		(Global.Stack == Null) == True;
 	}
 
 	actions
 	{
 		Disable Built-In Game Mode Announcer;
 		Disable Built-In Game Mode Completion;
-		Global.Register = Empty Array;
-		Global.Constants = Empty Array;
-		Global.Game = Empty Array;
 
-		// Top Left Vector
-		Modify Global Variable(Constants, Append To Array, Vector(15.55, 0, 15.55));
-		// Tiles Size
-		Modify Global Variable(Constants, Append To Array, -3.7);
+		Global.Stack = Empty Array;
+		Global.StackLabels = Empty Array;
+		Global.StackScopePointer = 0;
+
+		Modify Global Variable(Stack, Append To Array, Vector(15.55, 0, 15.55));
+		Modify Global Variable(StackLabels, Append To Array, Custom String("TOP_LEFT_VECTOR"));
+
+		Modify Global Variable(Stack, Append To Array, -3.7);
+		Modify Global Variable(StackLabels, Append To Array, Custom String("TILE_SIZE"));
 
 		Call Subroutine(CreateGame);
 	}
@@ -179,7 +180,7 @@ rule("Initialize")
 //
 
 // Applies player specific rules.
-rule("Player Joined")
+rule("Player: Joined")
 {
 	event
 	{
@@ -195,7 +196,7 @@ rule("Player Joined")
 }
 
 // Disables players from inflicting damage.
-rule("Disable Damage")
+rule("Player: Disable Damage")
 {
 	event
 	{
@@ -204,14 +205,41 @@ rule("Disable Damage")
 		All;
 	}
 
+	conditions
+	{
+		!Is Dummy Bot(Event Player) == True;
+	}
+
 	actions
 	{
 		Set Damage Dealt(Event Player, 0);
 	}
 }
 
+// Disables players from moving bots
+rule("Player: Disable Knockback")
+{
+	event
+	{
+		Player Dealt Knockback;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		!Is Dummy Bot(Event Player) == True;
+		Is Dummy Bot(Victim) == True;
+	}
+
+	actions
+	{
+		Set Knockback Dealt(Victim, 0);
+	}
+}
+
 // Prevents player from jumping off of the island
-rule("Out of Bounds")
+rule("Player: Out of Bounds")
 {
 	event
 	{
@@ -222,6 +250,7 @@ rule("Out of Bounds")
 
 	conditions
 	{
+		!Is Dummy Bot(Event Player) == True;
 		Y Component Of(Position Of(Event Player)) <= -5;
 	}
 
@@ -319,8 +348,12 @@ rule("Create Game")
 
 		For Global Variable(Index, 0, Count Of(Global.Board), 1);
 			// Column
-			Global.Register[0] = Global.Index;
-			If (Global.Register[0] > 7);
+			Modify Global Variable(Stack, Append To Array, Index);
+			Modify Global Variable(StackLabels, Append To Array, Custom String("column"));
+
+			
+
+			If (Global.Stack[Index Of Array Value(Global.StackLabels, Custom String("column"))] > 7);
 				Global.Register[0] %= 8;
 			End;
 			// Row

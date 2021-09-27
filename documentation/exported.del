@@ -1,0 +1,882 @@
+settings
+{
+	main
+	{
+		Description: "Play chess with Overwatch heros! Made with Workshop."
+	}
+
+	lobby
+	{
+		Max Spectators: 12
+		Swap Teams After Match: No
+	}
+
+	modes
+	{
+		disabled Deathmatch
+		{
+			Game Length In Minutes: 5
+			Score To Win: 1
+		}
+
+		Team Deathmatch
+		{
+			Game Length In Minutes: 15
+			Mercy Resurrect Counteracts Kills: Off
+			Score To Win: 200
+
+			enabled maps
+			{
+				Workshop Island
+			}
+		}
+
+		General
+		{
+			Allow Hero Switching: Off
+			Enemy Health Bars: Off
+			Game Mode Start: Immediately
+			Hero Limit: Off
+			Respawn Time Scalar: 45%
+		}
+	}
+
+	heroes
+	{
+		General
+		{
+			Doomfist
+			{
+				Damage Dealt: 10%
+				Damage Received: 10%
+				Rising Uppercut Knockback Scalar: 50%
+				Rocket Punch Knockback Scalar: 50%
+				Ultimate Duration: 25%
+				Ultimate Generation - Combat Meteor Strike: 0%
+				Ultimate Generation - Passive Meteor Strike: 0%
+				Ultimate Generation Meteor Strike: 10%
+			}
+
+			enabled heroes
+			{
+				Doomfist
+			}
+		}
+	}
+
+	extensions
+	{
+		Beam Effects
+		Energy Explosion Effects
+		Kinetic Explosion Effects
+		Explosion Sounds
+		Play More Effects
+		Spawn More Dummy Bots
+	}
+}
+
+variables
+{
+	global:
+		0: StartingVector
+		1: DistanceVector
+		2: PlayerTurn
+		3: BotEntities
+		4: CenteringVector
+		5: TempVar1
+		6: TempVar2
+		7: TurnInitialized
+		8: PiecesDrawn
+		9: j
+		10: k
+		11: l
+		12: m
+		13: n
+		15: p
+		16: q
+		17: r
+		18: s
+		19: t
+		20: u
+		21: v
+		24: y
+
+	player:
+		0: PieceSimplifiedVectors
+		1: PieceIconEntities
+		2: PieceShadowEntities
+		3: PieceTypes
+		4: SelectedIndex
+		5: MoveSimplifiedVector
+		6: SeePieces
+		7: Ready
+		8: s
+		9: a
+		10: v
+}
+
+subroutines
+{
+	0: CreatePieces
+	1: DestroyPieces
+	2: f
+	3: b
+	4: d
+	5: a
+	6: h
+	7: j
+}
+
+disabled rule("## Initialization Rules ##")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Initialize: Variables")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.BotEntities = Empty Array;
+	}
+}
+
+rule("Initialize: Values")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.StartingVector = Vector(14.120, 0, -16.600);
+		Global.DistanceVector = Vector(-4, 0, 4);
+		Global.CenteringVector = Vector(-0.100, -0.750, 2.600);
+		Global.PlayerTurn = 1;
+		Global.TurnInitialized = False;
+	}
+}
+
+disabled rule("## Game Rules ##")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Game: Turn Start")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.TurnInitialized == False;
+		Is True For Any(All Players(All Teams), All Players(All Teams).Ready == True) == True;
+	}
+
+	actions
+	{
+		Call Subroutine(CreatePieces);
+	}
+}
+
+rule("Game: Draw Board")
+{
+	event
+	{
+		Subroutine;
+		CreatePieces;
+	}
+
+	actions
+	{
+		For Global Variable(TempVar1, 0, Count Of(Players On Hero(Hero(Doomfist), Team 1).PieceSimplifiedVectors), 1);
+			Create Effect(Filtered Array(All Players(All Teams), Current Array Element.SeePieces == True), Sphere, Color(Team 1),
+				Global.StartingVector + Global.DistanceVector * Players On Hero(Hero(Doomfist), Team 1)
+				.PieceSimplifiedVectors[Global.TempVar1] + Global.CenteringVector, 2, Visible To);
+			Modify Player Variable(Players On Hero(Hero(Doomfist), Team 1), PieceShadowEntities, Append To Array, Last Created Entity);
+		End;
+		For Global Variable(TempVar1, 0, Count Of(Players On Hero(Hero(Doomfist), Team 2).PieceSimplifiedVectors), 1);
+			Create Effect(Filtered Array(All Players(All Teams), Current Array Element.SeePieces == True), Sphere, Color(Team 2),
+				Global.StartingVector + Global.DistanceVector * Players On Hero(Hero(Doomfist), Team 2)
+				.PieceSimplifiedVectors[Global.TempVar1] + Global.CenteringVector, 2, Visible To);
+			Modify Player Variable(Players On Hero(Hero(Doomfist), Team 2), PieceShadowEntities, Append To Array, Last Created Entity);
+		End;
+		Global.PiecesDrawn = True;
+	}
+}
+
+disabled rule("## Player Rules ##")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Player: Join")
+{
+	event
+	{
+		Player Joined Match;
+		All;
+		All;
+	}
+
+	actions
+	{
+		"Start Top Down Camera"
+		Start Camera(Event Player, Vector(0, 35, 0), Vector(0, 0, 0), 1);
+		"Create HUD Elements"
+		Create HUD Text(Event Player, Custom String("Player {0}'s Turn", Global.PlayerTurn), Null, Null, Top, 0, Color(White), Color(
+			White), Color(White), Visible To and String, Default Visibility);
+		"Initialize Variables"
+		Event Player.PieceSimplifiedVectors = Empty Array;
+		Event Player.PieceIconEntities = Empty Array;
+		Event Player.PieceShadowEntities = Empty Array;
+		Event Player.PieceTypes = Empty Array;
+		Event Player.SelectedIndex = -1;
+		Event Player.MoveSimplifiedVector = Null;
+		Event Player.SeePieces = True;
+		"Add Piece Types"
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 4);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 2);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 3);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 5);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 6);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 3);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 2);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 4);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		Modify Player Variable(Event Player, PieceTypes, Append To Array, 1);
+		"Add Piece Locations"
+		If(Is True For Any(All Players(Team 1), Current Array Element == Event Player) == True);
+			For Global Variable(TempVar1, 0, 2, 1);
+				For Global Variable(TempVar2, 0, 8, 1);
+					Modify Player Variable(Event Player, PieceSimplifiedVectors, Append To Array, Vector(Global.TempVar2, 0, Global.TempVar1));
+				End;
+			End;
+		Else If(Is True For Any(All Players(Team 2), Current Array Element == Event Player) == True);
+			For Global Variable(TempVar1, 7, 5, -1);
+				For Global Variable(TempVar2, 0, 8, 1);
+					Modify Player Variable(Event Player, PieceSimplifiedVectors, Append To Array, Vector(Global.TempVar2, 0, Global.TempVar1));
+				End;
+			End;
+		End;
+		Event Player.Ready = True;
+	}
+}
+
+rule("Player: No Damage")
+{
+	event
+	{
+		Player Dealt Damage;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Set Damage Dealt(Event Player, 0);
+	}
+}
+
+rule("Player: Out of Bounds")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Y Component Of(Position Of(Event Player)) <= -5;
+	}
+
+	actions
+	{
+		Set Facing(Event Player, Direction Towards(Eye Position(Event Player), Vector(0, 35, 0)), To World);
+		Apply Impulse(Event Player, Direction Towards(Event Player, Vector(0, 20, 0)), 40, To World, Cancel Contrary Motion);
+		Set Status(Event Player, Null, Stunned, 2.600);
+	}
+}
+
+disabled rule("Player: Select")
+{
+	event
+	{
+		Ongoing - Each Player;
+		Team 1;
+		All;
+	}
+
+	conditions
+	{
+		Global.q == 1;
+		Event Player.PieceSimplifiedVectors == -1;
+		Is Button Held(Event Player, Button(Melee)) == True;
+		Is True For Any(Global.PlayerTurn, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True;
+		Event Player.PieceShadowEntities == False;
+	}
+
+	actions
+	{
+		Event Player.PieceShadowEntities = True;
+		Call Subroutine(a);
+		Event Player.PieceSimplifiedVectors = Index Of Array Value(Global.PlayerTurn, First Of(Sorted Array(Global.PlayerTurn,
+			Distance Between(Event Player, Current Array Element + Global.t))));
+		Destroy Effect(Global.DistanceVector[Event Player.PieceSimplifiedVectors]);
+		Create Effect(Filtered Array(All Players(All Teams), Current Array Element.PieceIconEntities == True), Sphere, Color(Lime Green),
+			Global.PlayerTurn[Event Player.PieceSimplifiedVectors] + Global.t, 2, Visible To);
+		Play Effect(All Players(All Teams), Buff Impact Sound, Color(Team 1), Vector(0, 30, 0), 100);
+		Global.DistanceVector[Event Player.PieceSimplifiedVectors] = Last Created Entity;
+		Wait(0.500, Ignore Condition);
+		Event Player.PieceShadowEntities = False;
+	}
+}
+
+disabled rule("Player: Select (Team 2)")
+{
+	event
+	{
+		Ongoing - Each Player;
+		Team 2;
+		All;
+	}
+
+	conditions
+	{
+		Global.q == 2;
+		Event Player.PieceSimplifiedVectors == -1;
+		Is Button Held(Event Player, Button(Melee)) == True;
+		Is True For Any(Global.TempVar1, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True;
+		Event Player.PieceShadowEntities == False;
+	}
+
+	actions
+	{
+		Event Player.PieceShadowEntities = True;
+		Call Subroutine(a);
+		Play Effect(All Players(All Teams), Buff Impact Sound, Color(Team 2), Vector(0, 30, 0), 100);
+		Event Player.PieceSimplifiedVectors = Index Of Array Value(Global.TempVar1, First Of(Sorted Array(Global.TempVar1,
+			Distance Between(Event Player, Current Array Element + Global.t))));
+		Destroy Effect(Global.CenteringVector[Event Player.PieceSimplifiedVectors]);
+		Create Effect(Filtered Array(All Players(All Teams), Current Array Element.PieceIconEntities == True), Sphere, Color(Lime Green),
+			Global.TempVar1[Event Player.PieceSimplifiedVectors] + Global.t, 2, Visible To);
+		Global.CenteringVector[Event Player.PieceSimplifiedVectors] = Last Created Entity;
+		Wait(0.500, Ignore Condition);
+		Event Player.PieceShadowEntities = False;
+	}
+}
+
+disabled rule("Player: Selects Piece Again (Team 1)")
+{
+	event
+	{
+		Ongoing - Each Player;
+		Team 1;
+		All;
+	}
+
+	conditions
+	{
+		Global.q == 1;
+		Event Player.PieceSimplifiedVectors != -1;
+		Is Button Held(Event Player, Button(Melee)) == True;
+		Is True For Any(Global.PlayerTurn, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True;
+		Event Player.PieceShadowEntities == False;
+	}
+
+	actions
+	{
+		Event Player.PieceShadowEntities = True;
+		Call Subroutine(f);
+		Wait(0.500, Ignore Condition);
+		Event Player.PieceShadowEntities = False;
+	}
+}
+
+disabled rule("Player: Selects Piece Again (Team 2)")
+{
+	event
+	{
+		Ongoing - Each Player;
+		Team 2;
+		All;
+	}
+
+	conditions
+	{
+		Global.q == 2;
+		Event Player.PieceSimplifiedVectors != -1;
+		Is Button Held(Event Player, Button(Melee)) == True;
+		Is True For Any(Global.TempVar1, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True;
+		Event Player.PieceShadowEntities == False;
+	}
+
+	actions
+	{
+		Event Player.PieceShadowEntities = True;
+		Call Subroutine(b);
+		Wait(0.500, Ignore Condition);
+		Event Player.PieceShadowEntities = False;
+	}
+}
+
+disabled rule("Player: Deselect (Team 1)")
+{
+	event
+	{
+		Subroutine;
+		f;
+	}
+
+	actions
+	{
+		Play Effect(All Players(All Teams), Debuff Impact Sound, Color(Team 1), Vector(0, 30, 0), 100);
+		Destroy Effect(Global.DistanceVector[Event Player.PieceSimplifiedVectors]);
+		Create Effect(Filtered Array(All Players(All Teams), Current Array Element.PieceIconEntities == True), Sphere, Color(Team 1),
+			Global.PlayerTurn[Event Player.PieceSimplifiedVectors] + Global.t, 2, Visible To);
+		Global.DistanceVector[Event Player.PieceSimplifiedVectors] = Last Created Entity;
+		Event Player.PieceSimplifiedVectors = -1;
+	}
+}
+
+disabled rule("Player: Deselect (Team 2)")
+{
+	event
+	{
+		Subroutine;
+		b;
+	}
+
+	actions
+	{
+		Play Effect(All Players(All Teams), Debuff Impact Sound, Color(Team 2), Vector(0, 30, 0), 100);
+		Destroy Effect(Global.CenteringVector[Event Player.PieceSimplifiedVectors]);
+		Create Effect(Filtered Array(All Players(All Teams), Current Array Element.PieceIconEntities == True), Sphere, Color(Team 2),
+			Global.TempVar1[Event Player.PieceSimplifiedVectors] + Global.t, 2, Visible To);
+		Global.CenteringVector[Event Player.PieceSimplifiedVectors] = Last Created Entity;
+		Event Player.PieceSimplifiedVectors = -1;
+	}
+}
+
+disabled rule("Player: Moves (Team 1)")
+{
+	event
+	{
+		Ongoing - Each Player;
+		Team 1;
+		All;
+	}
+
+	conditions
+	{
+		Global.q == 1;
+		Event Player.PieceSimplifiedVectors != -1;
+		Is Button Held(Event Player, Button(Melee)) == True;
+		Is True For Any(Global.PlayerTurn, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == False;
+		Event Player.PieceShadowEntities == False;
+	}
+
+	actions
+	{
+		Event Player.PieceShadowEntities = True;
+		Global.u = False;
+		Call Subroutine(d);
+		"Pawn Logic"
+		If(Global.r[Event Player.PieceSimplifiedVectors] == 1);
+			"Right Direction"
+			If(Event Player.SeePieces - Event Player.SelectedIndex > 0);
+				"No Horizontal Move"
+				If(Event Player.PieceTypes - Event Player.MoveSimplifiedVector == 0);
+					"Forward 1"
+					If(Absolute Value(Event Player.SelectedIndex - Event Player.SeePieces) == 1);
+						"is not Attacking"
+						If(Index Of Array Value(Global.TempVar1, Event Player.s) == -1);
+							Global.u = True;
+						End;
+					Else If(Absolute Value(Event Player.SeePieces - Event Player.SelectedIndex) == 2);
+						"is not Attacking"
+						If(Index Of Array Value(Global.TempVar1, Event Player.s) == -1);
+							Global.u = True;
+						End;
+					End;
+				"Horizontal of 1"
+				Else If(Absolute Value(Event Player.PieceTypes - Event Player.MoveSimplifiedVector) == 1);
+					"Forward 1"
+					If(Absolute Value(Event Player.SelectedIndex - Event Player.SeePieces) == 1);
+						"is Attacking"
+						If(Index Of Array Value(Global.TempVar1, Event Player.s) != -1);
+							Global.u = True;
+						End;
+					End;
+				End;
+			End;
+		"Knight Logic"
+		Else If(Global.r[Event Player.PieceSimplifiedVectors] == 2);
+		End;
+		If(Global.u == True);
+			Call Subroutine(j);
+		End;
+	}
+}
+
+disabled rule("Player: Find Location Select")
+{
+	event
+	{
+		Subroutine;
+		a;
+	}
+
+	actions
+	{
+		If(Is True For Any(Global.TempVar2, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 1;
+			Event Player.PieceTypes = Index Of Array Value(Global.TempVar2, First Of(Sorted Array(Global.TempVar2, Distance Between(
+				Event Player, Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.TurnInitialized, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 2;
+			Event Player.PieceTypes = Index Of Array Value(Global.TurnInitialized, First Of(Sorted Array(Global.TurnInitialized,
+				Distance Between(Event Player, Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.PiecesDrawn, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 3;
+			Event Player.PieceTypes = Index Of Array Value(Global.PiecesDrawn, First Of(Sorted Array(Global.PiecesDrawn, Distance Between(
+				Event Player, Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.j, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 4;
+			Event Player.PieceTypes = Index Of Array Value(Global.j, First Of(Sorted Array(Global.j, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.k, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 5;
+			Event Player.PieceTypes = Index Of Array Value(Global.k, First Of(Sorted Array(Global.k, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.l, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 6;
+			Event Player.PieceTypes = Index Of Array Value(Global.l, First Of(Sorted Array(Global.l, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.m, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 7;
+			Event Player.PieceTypes = Index Of Array Value(Global.m, First Of(Sorted Array(Global.m, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.n, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.SelectedIndex = 8;
+			Event Player.PieceTypes = Index Of Array Value(Global.n, First Of(Sorted Array(Global.n, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		End;
+	}
+}
+
+disabled rule("Player: Find Location Move")
+{
+	event
+	{
+		Subroutine;
+		d;
+	}
+
+	actions
+	{
+		If(Is True For Any(Global.TempVar2, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.TempVar2, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 1;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.TempVar2, First Of(Sorted Array(Global.TempVar2, Distance Between(
+				Event Player, Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.TurnInitialized, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.TurnInitialized, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 2;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.TurnInitialized, First Of(Sorted Array(Global.TurnInitialized,
+				Distance Between(Event Player, Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.PiecesDrawn, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.PiecesDrawn, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 3;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.PiecesDrawn, First Of(Sorted Array(Global.PiecesDrawn,
+				Distance Between(Event Player, Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.j, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.j, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 4;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.j, First Of(Sorted Array(Global.j, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.k, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.k, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 5;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.k, First Of(Sorted Array(Global.k, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.l, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.l, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 6;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.l, First Of(Sorted Array(Global.l, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.m, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.m, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 7;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.m, First Of(Sorted Array(Global.m, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		Else If(Is True For Any(Global.n, Distance Between(Event Player, Current Array Element + Global.t) <= 2) == True);
+			Event Player.s = First Of(Sorted Array(Global.n, Distance Between(Event Player, Current Array Element + Global.t)));
+			Event Player.SeePieces = 8;
+			Event Player.MoveSimplifiedVector = Index Of Array Value(Global.n, First Of(Sorted Array(Global.n, Distance Between(Event Player,
+				Current Array Element + Global.t)))) + 1;
+		End;
+	}
+}
+
+rule("## Routines ##")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+disabled rule("Routine: Draw Pieces")
+{
+	event
+	{
+		Subroutine;
+		CreatePieces;
+	}
+
+	actions
+	{
+		For Global Variable(p, 0, Count Of(Global.PlayerTurn), 1);
+			If(Global.r[Global.p] == 1);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(McCree))), Global.PlayerTurn[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.r[Global.p] == 2);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Winston))), Global.PlayerTurn[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.r[Global.p] == 3);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Widowmaker))), Global.PlayerTurn[Global.p],
+					3, Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.r[Global.p] == 4);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Roadhog))), Global.PlayerTurn[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.r[Global.p] == 5);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Ana))), Global.PlayerTurn[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.r[Global.p] == 6);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Reinhardt))), Global.PlayerTurn[Global.p],
+					3, Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			End;
+			Modify Global Variable(StartingVector, Append To Array, Last Text ID);
+			Create Effect(Filtered Array(All Players(All Teams), Current Array Element.PieceIconEntities == True), Sphere, Color(Team 1),
+				Global.PlayerTurn[Global.p] + Vector(-0.100, -0.750, 2.600), 2, Visible To);
+			Modify Global Variable(DistanceVector, Append To Array, Last Created Entity);
+		End;
+		For Global Variable(p, 0, Count Of(Global.TempVar1), 1);
+			If(Global.s[Global.p] == 1);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(McCree))), Global.TempVar1[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.s[Global.p] == 2);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Winston))), Global.TempVar1[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.s[Global.p] == 3);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Widowmaker))), Global.TempVar1[Global.p],
+					3, Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.s[Global.p] == 4);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Roadhog))), Global.TempVar1[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.s[Global.p] == 5);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Ana))), Global.TempVar1[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			Else If(Global.s[Global.p] == 6);
+				Create In-World Text(All Players(All Teams), Custom String("{0}", Hero Icon String(Hero(Reinhardt))), Global.TempVar1[Global.p], 3,
+					Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+			End;
+			Modify Global Variable(BotEntities, Append To Array, Last Text ID);
+			Create Effect(Filtered Array(All Players(All Teams), Current Array Element.PieceIconEntities == True), Sphere, Color(Team 2),
+				Global.TempVar1[Global.p] + Vector(-0.100, -0.750, 2.600), 2, Visible To);
+			Modify Global Variable(CenteringVector, Append To Array, Last Created Entity);
+		End;
+	}
+}
+
+disabled rule("Routine: Move Not Blocked (Team 1)")
+{
+	event
+	{
+		Subroutine;
+		h;
+	}
+
+	actions
+	{
+		Global.v = False;
+		"Moves Horizontally"
+		If(Absolute Value(Event Player.PieceTypes - Event Player.MoveSimplifiedVector) != 0);
+			"Moves Both"
+			If(Absolute Value(Event Player.SelectedIndex - Event Player.SeePieces) != 0);
+			"Moves Horizontally Only"
+			Else;
+			End;
+		"Moves Vertically Only"
+		Else;
+		End;
+	}
+}
+
+disabled rule("Routine: Move No Kill (Team 1)")
+{
+	event
+	{
+		Subroutine;
+		j;
+	}
+
+	actions
+	{
+		Destroy In-World Text(Global.StartingVector[Event Player.PieceSimplifiedVectors]);
+		Destroy Effect(Global.DistanceVector[Event Player.PieceSimplifiedVectors]);
+		If(Global.r[Event Player.PieceSimplifiedVectors] == 1);
+			Create Dummy Bot(Hero(McCree), Team 1, -1, Global.PlayerTurn[Event Player.PieceSimplifiedVectors] + Global.t + Vector(0, 1, 0),
+				Vector(0, 0, 10));
+			Modify Global Variable(y, Append To Array, Last Created Entity);
+		End;
+		Last Created Entity.s = Event Player.s;
+		Last Created Entity.a = False;
+		Last Created Entity.v = 1;
+		Global.PlayerTurn[Event Player.PieceSimplifiedVectors] = Event Player.s;
+		Wait(0.500, Ignore Condition);
+		Event Player.PieceShadowEntities = False;
+	}
+}
+
+disabled rule("End Turn")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+		Global.q == 1;
+	}
+}
+
+disabled rule("Bot: Type 1")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.v >= 0;
+		Event Player.a == False;
+		Is True For Any(Global.y, Current Array Element == Event Player) == True;
+	}
+
+	actions
+	{
+		Set Facing(Event Player, Direction Towards(Event Player, Global.t + Event Player.s + Vector(0, 1.200, 0)), To World);
+		Start Throttle In Direction(Event Player, Direction Towards(Event Player, Event Player.s + Global.t + Vector(0, 1.200, 0)), 1,
+			To World, Replace existing throttle, Direction and Magnitude);
+	}
+}
+
+disabled rule("Bot: Arrive")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.a == False;
+		Distance Between(Event Player, Event Player.s + Global.t + Vector(0, 1.200, 0)) <= 0.500;
+		Event Player.v >= 0;
+		Is True For Any(Global.y, Current Array Element == Event Player) == True;
+	}
+
+	actions
+	{
+		Stop Forcing Throttle(Event Player);
+		Set Status(Event Player, Null, Rooted, 9999);
+		Set Facing(Event Player, Vector(0, 0, 10), To World);
+		Wait(0.500, Ignore Condition);
+		Communicate(Event Player, Hello);
+		If(Global.q == 1);
+			Global.q = 2;
+		Else;
+			Global.q = 1;
+		End;
+		Wait(1.400, Ignore Condition);
+		Destroy All Dummy Bots;
+	}
+}
+
+disabled rule("Routine: Destroy Pieces")
+{
+	event
+	{
+		Subroutine;
+		DestroyPieces;
+	}
+
+	actions
+	{
+		For Global Variable(p, 0, Count Of(Global.StartingVector), 1);
+			Destroy In-World Text(Global.StartingVector[Global.p]);
+		End;
+		Global.StartingVector = Empty Array;
+		For Global Variable(p, 0, Count Of(Global.DistanceVector), 1);
+			Destroy Effect(Global.DistanceVector[Global.p]);
+		End;
+		Global.DistanceVector = Empty Array;
+		For Global Variable(p, 0, Count Of(Global.BotEntities), 1);
+			Destroy In-World Text(Global.BotEntities[Global.p]);
+		End;
+		Global.BotEntities = Empty Array;
+		For Global Variable(p, 0, Count Of(Global.CenteringVector), 1);
+			Destroy Effect(Global.CenteringVector[Global.p]);
+		End;
+		Global.CenteringVector = Empty Array;
+	}
+}
+
+disabled rule("Player: Join")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Rule 29")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
