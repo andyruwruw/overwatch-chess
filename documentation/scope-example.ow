@@ -1,3 +1,14 @@
+Stack[0] = FramePointer
+Stack[1] = StackPointer
+
+// new Variables
+Stack[2] = Label
+Stack[3] = Value
+
+// Calling Function
+
+
+
 variables
 {
 	global:
