@@ -42,6 +42,9 @@ We can even go as far as to create our own version of a [call stack](https://en.
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Call_stack_layout.svg/342px-Call_stack_layout.svg.png">
 </p>
 
+1: StackPointer
+0: FramePointer
+
 We can use another variable as our **stack pointer** to manage where the next item can be inserted, and **frame pointer** to manage where the local scope begins.
 
 While we have the ability to append items, this gives us further control to override old variables.
