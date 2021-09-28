@@ -73,11 +73,11 @@ settings
 
 variables
 {
-  global:
+  	global:
 		0: Stack1
 		1: Board
-		2: c
-		3: d
+		2: Timer
+		3: PlayerTurn
 		4: e
 		5: f
 		6: g
@@ -88,7 +88,7 @@ variables
 		11: l
 		12: m
 		13: n
-    14: o
+    	14: o
 		15: p
 		16: q
 		17: r
@@ -96,17 +96,17 @@ variables
 		19: t
 		20: u
 		21: v
-    22: w
-    23: x
+		22: w
+		23: x
 		24: y
-    25: z
-  player:
-    0: CameraMode
+    	25: z
+  	player:
+    	0: CameraMode
 		1: LockView
 		2: DisableKnockback
-		3: ShowMoves
+		3: ShowPossibleMoves
 		4: ShowCinematics
-		5: f
+		5: SelectedPiece
 		6: g
 		7: h
 		8: i
@@ -115,7 +115,7 @@ variables
 		11: l
 		12: m
 		13: n
-    14: o
+    	14: o
 		15: p
 		16: q
 		17: r
@@ -123,22 +123,21 @@ variables
 		19: t
 		20: u
 		21: v
-    22: w
-    23: x
+    	22: w
+    	23: x
 		24: y
-    25: z
+    	25: z
 }
 
 subroutines
 {
-	0: StartTopDownCamera
-	1: CreateGame
-	2: CreatePiece
-	3: d
-	4: e
-	5: f
-	6: g
-	7: h
+	0: InitializeStack1
+	1: ReturnAddressStack1
+	2: EndSubroutineStack1
+	3: FreeStack1
+	4: SetCamera
+	5: CreateGame
+	6: CreatePiece
 }
 
 // Inicialization of Variables
@@ -158,11 +157,8 @@ rule("Initialize")
 
 	actions
 	{
-		Global.Stack1 = Empty Array;
-		// Frame Pointer
-		Global.Stack1[0] = 2;
-		// Stack Pointer
-		Global.Stack1[1] = 2;
+		// Prepare Stack
+		Call Subroutine(InitializeStack1);
 
 		// const TOP_LEFT_VECTOR = new Vector(15.55, 0, 15.55);
 		Global.Stack1[Global.Stack1[1]] = Custom String("TOP_LEFT_VECTOR");
@@ -171,18 +167,51 @@ rule("Initialize")
 
 		// const TILE_SIZE = -3.7;
 		Global.Stack1[Global.Stack1[1]] = Custom String("TILE_SIZE");
-		Global.Stack1[Global.Stack1[1] + 1] = -3.7;
+		Global.Stack1[Global.Stack1[1] + 1] = -3.8;
 		Global.Stack1[1] += 2;
 
 		Disable Built-In Game Mode Announcer;
 		Disable Built-In Game Mode Completion;
-
-		// Return Address
-		Global.Stack1[Global.Stack1[1]] = Global.Stack1[0];
-		Global.Stack1[1] += 1;
 		
+		// Sets return address
+		Call Subroutine(ReturnAddressStack1);
+
 		// CreateGame();
 		Call Subroutine(CreateGame);
+		
+		// End thread. Free up stack for further use.
+		Call Subroutine(FreeStack1);
+	}
+}
+
+//
+// General Logic
+//
+
+rule("Player: Select")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		!Is Dummy Bot(Event Player) == True;
+		Is Button Held(Event Player, Primary Fire);
+		Global.Stack1[2] == False;
+		(Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1) == True;
+	}
+
+	actions
+	{
+		// Prepare Stack
+		Call Subroutine(InitializeStack1);
+
+		// End thread. Free up stack for further use.
+		Call Subroutine(FreeStack1);
 	}
 }
 
@@ -202,7 +231,14 @@ rule("Player: Joined")
 
 	actions
 	{
-		Call Subroutine(StartTopDownCamera);
+		// Default Values
+		Set Player Variable(Event Player, CameraMode, 0);
+		Set Player Variable(Event Player, LockView, False);
+		Set Player Variable(Event Player, DisableKnockback, False);
+		Set Player Variable(Event Player, ShowPossibleMoves, True);
+		Set Player Variable(Event Player, ShowCinematics, True);
+
+		Call Subroutine(SetCamera);
 	}
 }
 
@@ -240,7 +276,7 @@ rule("Player: Disable Knockback")
 	conditions
 	{
 		!Is Dummy Bot(Event Player) == True;
-		Is Dummy Bot(Victim) == True;
+		Is Dummy Bot(Victim) == True || Player Variable(Victim, DisableKnockback) == True;
 	}
 
 	actions
@@ -274,8 +310,27 @@ rule("Player: Out of Bounds")
 }
 
 //
-// Scenes
+// Helper Subroutines
 //
+
+// Sets player's camera
+rule("Set Camera")
+{
+	event
+	{
+		Subroutine;
+		SetCamera;
+	}
+
+	actions
+	{
+		If (Player Variable(CameraMode) == 0);
+			Start Camera(Event Player, Vector(0, 35, 0), Vector(0, 0, 0), 1);
+		Else If(Player Variable(CameraMode) == 1);
+			Stop Camera(Event Player);
+		End;
+	}
+}
 
 // CreateGame()
 // Creates and set up the board for a new game.
@@ -401,10 +456,10 @@ rule("Create Game")
 			Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]] += 1;
 		End;
 
-		// Rollback stack pointer
-		Global.Stack1[1] = Global.Stack1[0] - 1;
-		// Set scope to previous (FramePointer)
-		Global.Stack1[0] = Global.Stack1[Global.Stack1[1]];
+		Global.PlayerTurn = 2;
+
+		// End Function
+		Call Subroutine(EndSubroutineStack1);
 	}
 }
 
@@ -491,6 +546,64 @@ rule("Create Piece")
 			End;
 		End;
 
+		// End Function
+		Call Subroutine(EndSubroutineStack1);
+	}
+}
+
+//
+// Stack Subroutines
+//
+
+// Initializes the Stack
+rule("Stack 1: Initialize")
+{
+	event
+	{
+		Subroutine;
+		InitializeStack1;
+	}
+
+	actions
+	{
+		Global.Stack1 = Empty Array;
+		// Frame Pointer
+		Global.Stack1[0] = 3;
+		// Stack Pointer
+		Global.Stack1[1] = 3;
+		// Stack in Use
+		GLobal.Stack1[2] = True;
+	}
+}
+
+// Prepares the Stack for Subroutine Call
+rule("Stack 1: Prepare Return Address")
+{
+	event
+	{
+		Subroutine;
+		ReturnAddressStack1;
+	}
+
+	actions
+	{
+		// Return Address
+		Global.Stack1[Global.Stack1[1]] = Global.Stack1[0];
+		Global.Stack1[1] += 1;
+	}
+}
+
+// Resets FramePointer and Stack Pointer for subroutine end
+rule("Stack 1: End Subroutine")
+{
+	event
+	{
+		Subroutine;
+		EndSubroutineStack1;
+	}
+
+	actions
+	{
 		// Rollback stack pointer
 		Global.Stack1[1] = Global.Stack1[0] - 1;
 		// Set scope to previous (FramePointer)
@@ -498,18 +611,17 @@ rule("Create Piece")
 	}
 }
 
-// Starts player's top-down camera
-rule("Start Top-Down Camera")
+rule("Stack 1: Free Stack")
 {
 	event
 	{
 		Subroutine;
-		StartTopDownCamera;
+		FreeStack1;
 	}
-
 	actions
 	{
-		Start Camera(Event Player, Vector(0, 35, 0), Vector(0, 0, 0), 1);
+		// Stack no longer in use
+		Global.Stack1[2] = False;
 	}
 }
 
