@@ -75,10 +75,10 @@ variables
 {
   	global:
 		0: Stack1
-		1: Board
-		2: Timer
-		3: PlayerTurn
-		4: e
+		1: Stack2
+		2: Board
+		3: Timer
+		4: PlayerTurn
 		5: f
 		6: g
 		7: h
@@ -135,9 +135,15 @@ subroutines
 	1: ReturnAddressStack1
 	2: EndSubroutineStack1
 	3: FreeStack1
-	4: SetCamera
-	5: CreateGame
-	6: CreatePiece
+	4: InitializeStack2
+	5: ReturnAddressStack2
+	6: EndSubroutineStack2
+	7: FreeStack2
+	8: SetCamera
+	9: CreateGame
+	10: CreatePiece
+	11: GetPlayerPosition
+	12: ChangeTurn
 }
 
 // Inicialization of Variables
@@ -199,9 +205,9 @@ rule("Player: Select")
 
 	conditions
 	{
-		!Is Dummy Bot(Event Player) == True;
-		Is Button Held(Event Player, Primary Fire);
 		Global.Stack1[2] == False;
+		Is Button Held(Event Player, Primary Fire);
+		!Is Dummy Bot(Event Player) == True;
 		(Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1) == True;
 	}
 
@@ -210,8 +216,38 @@ rule("Player: Select")
 		// Prepare Stack
 		Call Subroutine(InitializeStack1);
 
+		// Sets return address
+		Call Subroutine(ReturnAddressStack1);
+
+		// let playerPosition = GetPlayerPosition();
+		Call Subroutine(GetPlayerPosition);
+
+		
+
 		// End thread. Free up stack for further use.
 		Call Subroutine(FreeStack1);
+	}
+}
+
+rule("Reveal Piece")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.Stack1[2] == False;
+		!Is Dummy Bot(Event Player) == True;
+		(Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1) == True;
+	}
+
+	actions
+	{
+
 	}
 }
 
@@ -329,6 +365,44 @@ rule("Set Camera")
 		Else If(Player Variable(CameraMode) == 1);
 			Stop Camera(Event Player);
 		End;
+	}
+}
+
+rule("Player: Get Position") {
+	event
+	{
+		Subroutine;
+		GetPlayerPosition;
+	}
+
+	actions
+	{
+		// Sets Local Scope (FramePointer) with 0 Parameters
+		Global.Stack1[0] = Global.Stack1[1];
+
+		// End Function
+		Call Subroutine(EndSubroutineStack1);
+
+		// return position;
+		Global.Stack1[Global.Stack1[1]] = Custom String("playerPosition");
+		Global.Stack1[Global.Stack1[1] + 1] = Vector(
+			Round To Integer((X Component Of(Position Of(Event Player)) - X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1])) / Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1], Down),
+			0,
+			Round To Integer((Z Component Of(Position Of(Event Player)) - Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1])) / Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1], Down));
+		Global.Stack1[1] += 2;
+	}
+}
+
+rule("Change Turn") {
+	event
+	{
+		Subroutine;
+		ChangeTurn;
+	}
+
+	actions
+	{
+		Create HUD Text(Event Player, Custom String("Player {0}'s Turn", Global.PlayerTurn), Null, Null, Top, 0, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
 	}
 }
 
@@ -523,26 +597,26 @@ rule("Create Piece")
 			// if (heroTeam <= 6)
 			If (Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("heroTeam")) + 1 + Global.Stack1[0]] <= 6);
 				// CreateDummyBot(hero, Teams[1], Slots.Random, new Vector(TOP_LEFT_VECTOR.x + TILE_SIZE / 2 + TILE_SIZE * column), 0, TOP_LEFT_VECTOR.y + TILE_SIZE / 2 + TILE_SIZE * row), new Vector(0, 0, 10));
-				Create Dummy Bot(
-					Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
-					Team 1,
-					-1,
-					Vector(
-						X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
-						0,
-						Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
-					Vector(0, 0, 10));
+				// Create Dummy Bot(
+				// 	Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
+				// 	Team 1,
+				// 	-1,
+				// 	Vector(
+				// 		X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
+				// 		0,
+				// 		Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
+				// 	Vector(0, 0, 10));
 			Else;
 				// CreateDummyBot(hero, Teams[2], Slots.Random, new Vector(TOP_LEFT_VECTOR.x + TILE_SIZE / 2 + TILE_SIZE * column), 0, TOP_LEFT_VECTOR.y + TILE_SIZE / 2 + TILE_SIZE * row), new Vector(0, 0, 10));
-				Create Dummy Bot(
-					Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
-					Team 2,
-					-1,
-					Vector(
-						X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
-						0,
-						Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
-					Vector(0, 0, 10));
+				// Create Dummy Bot(
+				// 	Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
+				// 	Team 2,
+				// 	-1,
+				// 	Vector(
+				// 		X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
+				// 		0,
+				// 		Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
+					// Vector(0, 0, 10));
 			End;
 		End;
 
@@ -611,6 +685,7 @@ rule("Stack 1: End Subroutine")
 	}
 }
 
+// Frees the stack up for further use
 rule("Stack 1: Free Stack")
 {
 	event
@@ -625,16 +700,73 @@ rule("Stack 1: Free Stack")
 	}
 }
 
-// rule("Start Turn")
-// {
-// 	event
-// 	{
+// Initializes the Stack
+rule("Stack 2: Initialize")
+{
+	event
+	{
+		Subroutine;
+		InitializeStack2;
+	}
 
-// 	}
+	actions
+	{
+		Global.Stack2 = Empty Array;
+		// Frame Pointer
+		Global.Stack2[0] = 3;
+		// Stack Pointer
+		Global.Stack2[1] = 3;
+		// Stack in Use
+		GLobal.Stack2[2] = True;
+	}
+}
 
-// 	actions
-// 	{
-// 		Create HUD Text(Event Player, Custom String("Player {0}'s Turn", Global.PlayerTurn), Null, Null, Top, 0, Color(White), Color(
-// 			White), Color(White), Visible To and String, Default Visibility);
-// 	}
-// }
+// Prepares the Stack for Subroutine Call
+rule("Stack 2: Prepare Return Address")
+{
+	event
+	{
+		Subroutine;
+		ReturnAddressStack2;
+	}
+
+	actions
+	{
+		// Return Address
+		Global.Stack2[Global.Stack2[1]] = Global.Stack2[0];
+		Global.Stack2[1] += 1;
+	}
+}
+
+// Resets FramePointer and Stack Pointer for subroutine end
+rule("Stack 2: End Subroutine")
+{
+	event
+	{
+		Subroutine;
+		EndSubroutineStack2;
+	}
+
+	actions
+	{
+		// Rollback stack pointer
+		Global.Stack2[1] = Global.Stack2[0] - 1;
+		// Set scope to previous (FramePointer)
+		Global.Stack2[0] = Global.Stack2[Global.Stack2[1]];
+	}
+}
+
+// Frees the stack up for further use
+rule("Stack 2: Free Stack")
+{
+	event
+	{
+		Subroutine;
+		FreeStack2;
+	}
+	actions
+	{
+		// Stack no longer in use
+		Global.Stack2[2] = False;
+	}
+}
