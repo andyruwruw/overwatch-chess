@@ -73,14 +73,14 @@ settings
 
 variables
 {
-  	global:
-		0: Stack1
-		1: Stack2
-		2: Board
-		3: Timer
-		4: PlayerTurn
-		5: f
-		6: g
+	global:
+		0: Constants
+		1: Stack1
+		2: Stack2
+		3: Board
+		4: TimerPlayer1
+		5: TimerPlayer2
+		6: PlayerTurn
 		7: h
 		8: i
 		9: j
@@ -88,7 +88,7 @@ variables
 		11: l
 		12: m
 		13: n
-    	14: o
+		14: o
 		15: p
 		16: q
 		17: r
@@ -99,9 +99,9 @@ variables
 		22: w
 		23: x
 		24: y
-    	25: z
-  	player:
-    	0: CameraMode
+		25: z
+	player:
+		0: CameraMode
 		1: LockView
 		2: DisableKnockback
 		3: ShowPossibleMoves
@@ -115,7 +115,7 @@ variables
 		11: l
 		12: m
 		13: n
-    	14: o
+		14: o
 		15: p
 		16: q
 		17: r
@@ -123,10 +123,10 @@ variables
 		19: t
 		20: u
 		21: v
-    	22: w
-    	23: x
+		22: w
+		23: x
 		24: y
-    	25: z
+		25: z
 }
 
 subroutines
@@ -139,11 +139,12 @@ subroutines
 	5: ReturnAddressStack2
 	6: EndSubroutineStack2
 	7: FreeStack2
-	8: SetCamera
-	9: CreateGame
-	10: CreatePiece
-	11: GetPlayerPosition
-	12: ChangeTurn
+	8: CreateMainMenu
+	9: SetCamera
+	10: CreateGame
+	11: CreatePiece
+	12: GetPlayerPosition
+	13: ChangeTurn
 }
 
 // Inicialization of Variables
@@ -167,23 +168,33 @@ rule("Initialize")
 		Call Subroutine(InitializeStack1);
 
 		// const TOP_LEFT_VECTOR = new Vector(15.55, 0, 15.55);
-		Global.Stack1[Global.Stack1[1]] = Custom String("TOP_LEFT_VECTOR");
-		Global.Stack1[Global.Stack1[1] + 1] = Vector(15.55, 0, 15.55);
-		Global.Stack1[1] += 2;
-
+		Modify Global Variable(Constants, Append To Array, Custom String("TOP_LEFT_VECTOR"));
+		Modify Global Variable(Constants, Append To Array, Vector(15.55, 0, 15.55));
+	
 		// const TILE_SIZE = -3.7;
-		Global.Stack1[Global.Stack1[1]] = Custom String("TILE_SIZE");
-		Global.Stack1[Global.Stack1[1] + 1] = -3.8;
-		Global.Stack1[1] += 2;
+		Modify Global Variable(Constants, Append To Array, Custom String("TILE_SIZE"));
+		Modify Global Variable(Constants, Append To Array, -3.9);
+
+		// let TimerPlayer1 = -1;
+		Set Global Variable(TimerPlayer1, -1);
+
+		// let TimerPlayer2 = -1;
+		Set Global Variable(TimerPlayer2, -1);
 
 		Disable Built-In Game Mode Announcer;
 		Disable Built-In Game Mode Completion;
 		
+		// // Sets return address
+		// Call Subroutine(ReturnAddressStack1);
+
+		// // CreateGame();
+		// Call Subroutine(CreateGame);
+
 		// Sets return address
 		Call Subroutine(ReturnAddressStack1);
 
-		// CreateGame();
-		Call Subroutine(CreateGame);
+		// CreateMainMenu();
+		Call Subroutine(CreateMainMenu);
 		
 		// End thread. Free up stack for further use.
 		Call Subroutine(FreeStack1);
@@ -205,10 +216,10 @@ rule("Player: Select")
 
 	conditions
 	{
-		Global.Stack1[2] == False;
-		Is Button Held(Event Player, Primary Fire);
+		Global.Stack1[2] == 0;
+		Is Button Held(Event Player, Button(Melee)) == True;
 		!Is Dummy Bot(Event Player) == True;
-		(Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1) == True;
+		((Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1)) == True;
 	}
 
 	actions
@@ -240,9 +251,9 @@ rule("Reveal Piece")
 
 	conditions
 	{
-		Global.Stack1[2] == False;
+		Global.Stack1[2] == 0;
 		!Is Dummy Bot(Event Player) == True;
-		(Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1) == True;
+		((Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1)) == True;
 	}
 
 	actions
@@ -312,12 +323,12 @@ rule("Player: Disable Knockback")
 	conditions
 	{
 		!Is Dummy Bot(Event Player) == True;
-		Is Dummy Bot(Victim) == True || Player Variable(Victim, DisableKnockback) == True;
+		(Is Dummy Bot(Victim) == True || Player Variable(Victim, DisableKnockback)) == True;
 	}
 
 	actions
 	{
-		Set Knockback Dealt(Victim, 0);
+		Set Knockback Received(Victim, 0);
 	}
 }
 
@@ -360,15 +371,16 @@ rule("Set Camera")
 
 	actions
 	{
-		If (Player Variable(CameraMode) == 0);
+		If (Player Variable(Event Player, CameraMode) == 0);
 			Start Camera(Event Player, Vector(0, 35, 0), Vector(0, 0, 0), 1);
-		Else If(Player Variable(CameraMode) == 1);
+		Else If(Player Variable(Event Player, CameraMode) == 1);
 			Stop Camera(Event Player);
 		End;
 	}
 }
 
-rule("Player: Get Position") {
+rule("Player: Get Position")
+{
 	event
 	{
 		Subroutine;
@@ -386,14 +398,15 @@ rule("Player: Get Position") {
 		// return position;
 		Global.Stack1[Global.Stack1[1]] = Custom String("playerPosition");
 		Global.Stack1[Global.Stack1[1] + 1] = Vector(
-			Round To Integer((X Component Of(Position Of(Event Player)) - X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1])) / Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1], Down),
+			Round To Integer((X Component Of(Position Of(Event Player)) - X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1])) / Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1], Down),
 			0,
-			Round To Integer((Z Component Of(Position Of(Event Player)) - Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1])) / Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1], Down));
+			Round To Integer((Z Component Of(Position Of(Event Player)) - Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1])) / Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1], Down));
 		Global.Stack1[1] += 2;
 	}
 }
 
-rule("Change Turn") {
+rule("Change Turn")
+{
 	event
 	{
 		Subroutine;
@@ -403,6 +416,90 @@ rule("Change Turn") {
 	actions
 	{
 		Create HUD Text(Event Player, Custom String("Player {0}'s Turn", Global.PlayerTurn), Null, Null, Top, 0, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
+	}
+}
+
+rule("Create Main Menu")
+{
+	event
+	{
+		Subroutine;
+		CreateMainMenu;
+	}
+
+	actions
+	{
+		// Sets Local Scope (FramePointer) with 0 Parameters
+		Global.Stack1[0] = Global.Stack1[1];
+
+		// Title
+		Create In-World Text(
+			All Players(All Teams),
+			Custom String("Overwatch Chess"),
+			Vector(
+				X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 4,
+				0,
+				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 3),
+			4,
+			Do Not Clip,
+			Visible To,
+			Color(White),
+			Default Visibility);
+
+		
+
+		// Time Control Button
+		Create Effect(
+			All Players(All Teams),
+			Sphere,
+			Color(Yellow),
+			Vector(
+				X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 3,
+				0,
+				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 4),
+			2,
+			Visible To Position and Radius);
+
+		Create In-World Text(
+			All Players(All Teams),
+			Custom String("Time Control"),
+			Vector(
+				X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 3,
+				0,
+				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] / 3 * 16),
+			1.5,
+			Do Not Clip,
+			Visible To,
+			Color(White),
+			Default Visibility);
+
+		// Start Game Button
+		Create Effect(
+			All Players(All Teams),
+			Sphere,
+			Color(Green),
+			Vector(
+				X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 5,
+				0,
+				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 4),
+			2,
+			Visible To Position and Radius);
+
+		Create In-World Text(
+			All Players(All Teams),
+			Custom String("Start Game"),
+			Vector(
+				X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 5,
+				0,
+				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] / 3 * 16),
+			1.5,
+			Do Not Clip,
+			Visible To,
+			Color(White),
+			Default Visibility);
+
+		// End Function
+		Call Subroutine(EndSubroutineStack1);
 	}
 }
 
@@ -490,45 +587,43 @@ rule("Create Game")
 		Modify Global Variable(Board, Append To Array, 2);
 		Modify Global Variable(Board, Append To Array, 4);
 
-		Set Global Variable(c, Array Slice(Global.Board, 0,2));
-
 		// let i = 0;
-		Global.Stack1[Global.Stack1[1]] = Custom String("i");
-		Global.Stack1[Global.Stack1[1] + 1] = 0;
-		Global.Stack1[1] += 2;
+		// Global.Stack1[Global.Stack1[1]] = Custom String("i");
+		// Global.Stack1[Global.Stack1[1] + 1] = 0;
+		// Global.Stack1[1] += 2;
 
-		While(Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]] < Count Of(Global.Board));
-			// Return Address
-			Global.Stack1[Global.Stack1[1]] = Global.Stack1[0];
-			Global.Stack1[1] += 1;
+		// While(Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]] < Count Of(Global.Board));
+		// 	// Return Address
+		// 	Global.Stack1[Global.Stack1[1]] = Global.Stack1[0];
+		// 	Global.Stack1[1] += 1;
 
-			// parameter: column = i;
-			Global.Stack1[Global.Stack1[1]] = Custom String("column");
-			Global.Stack1[Global.Stack1[1] + 1] = Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]];
-			Global.Stack1[1] += 2;
+		// 	// parameter: column = i;
+		// 	Global.Stack1[Global.Stack1[1]] = Custom String("column");
+		// 	Global.Stack1[Global.Stack1[1] + 1] = Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]];
+		// 	Global.Stack1[1] += 2;
 			
-			// if (column > 7)
-			If (Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]] > 7);
-				// column %= 8;
-				Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]] %= 8;
-			End;
+		// 	// if (column > 7)
+		// 	If (Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]] > 7);
+		// 		// column %= 8;
+		// 		Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]] %= 8;
+		// 	End;
 
-			// parameter: row = Math.Floor(i / 8);
-			Global.Stack1[Global.Stack1[1]] = Custom String("row");
-			Global.Stack1[Global.Stack1[1] + 1] = Round To Integer(Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]] / 8, Down);
-			Global.Stack1[1] += 2;
+		// 	// parameter: row = Math.Floor(i / 8);
+		// 	Global.Stack1[Global.Stack1[1]] = Custom String("row");
+		// 	Global.Stack1[Global.Stack1[1] + 1] = Round To Integer(Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]] / 8, Down);
+		// 	Global.Stack1[1] += 2;
 			
-			// parameter: hero = Board[i];
-			Global.Stack1[Global.Stack1[1]] = Custom String("heroTeam");
-			Global.Stack1[Global.Stack1[1] + 1] = Global.Board[Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]]];
-			Global.Stack1[1] += 2;
+		// 	// parameter: hero = Board[i];
+		// 	Global.Stack1[Global.Stack1[1]] = Custom String("heroTeam");
+		// 	Global.Stack1[Global.Stack1[1] + 1] = Global.Board[Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]]];
+		// 	Global.Stack1[1] += 2;
 
-			// CreatePiece(column, row, heroTeam);
-			Call Subroutine(CreatePiece);
+		// 	// CreatePiece(column, row, heroTeam);
+		// 	// Call Subroutine(CreatePiece);
 
-			// i += 1;
-			Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]] += 1;
-		End;
+		// 	// i += 1;
+		// 	Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("i")) + 1 + Global.Stack1[0]] += 1;
+		// End;
 
 		Global.PlayerTurn = 2;
 
@@ -595,31 +690,31 @@ rule("Create Piece")
 			Global.Stack1[1] += 2;
 
 			// if (heroTeam <= 6)
-			If (Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("heroTeam")) + 1 + Global.Stack1[0]] <= 6);
+			If (Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("heroTeam")) + 1 + Global.Stack1[0]] > 6);
 				// CreateDummyBot(hero, Teams[1], Slots.Random, new Vector(TOP_LEFT_VECTOR.x + TILE_SIZE / 2 + TILE_SIZE * column), 0, TOP_LEFT_VECTOR.y + TILE_SIZE / 2 + TILE_SIZE * row), new Vector(0, 0, 10));
-				// Create Dummy Bot(
-				// 	Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
-				// 	Team 1,
-				// 	-1,
-				// 	Vector(
-				// 		X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
-				// 		0,
-				// 		Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
-				// 	Vector(0, 0, 10));
+				Create Dummy Bot(
+					Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
+					Team 1,
+					-1,
+					Vector(
+						X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] / 2 + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
+						0,
+						Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] / 2 + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
+					Vector(0, 0, -10));
 			Else;
-				// CreateDummyBot(hero, Teams[2], Slots.Random, new Vector(TOP_LEFT_VECTOR.x + TILE_SIZE / 2 + TILE_SIZE * column), 0, TOP_LEFT_VECTOR.y + TILE_SIZE / 2 + TILE_SIZE * row), new Vector(0, 0, 10));
-				// Create Dummy Bot(
-				// 	Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
-				// 	Team 2,
-				// 	-1,
-				// 	Vector(
-				// 		X Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
-				// 		0,
-				// 		Z Component Of(Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] / 2 + Global.Stack1[Index Of Array Value(Global.Stack1, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
-					// Vector(0, 0, 10));
+				Create Dummy Bot(
+					Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("hero")) + 1 + Global.Stack1[0]],
+					Team 2,
+					-1,
+					Vector(
+						X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] / 2 + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("column")) + 1 + Global.Stack1[0]],
+						0,
+						Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] / 2 + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("row")) + 1 + Global.Stack1[0]]),
+					Vector(0, 0, 10));
 			End;
 		End;
 
+	
 		// End Function
 		Call Subroutine(EndSubroutineStack1);
 	}
@@ -646,7 +741,7 @@ rule("Stack 1: Initialize")
 		// Stack Pointer
 		Global.Stack1[1] = 3;
 		// Stack in Use
-		GLobal.Stack1[2] = True;
+		GLobal.Stack1[2] = 1;
 	}
 }
 
@@ -696,7 +791,7 @@ rule("Stack 1: Free Stack")
 	actions
 	{
 		// Stack no longer in use
-		Global.Stack1[2] = False;
+		Global.Stack1[2] = 0;
 	}
 }
 
@@ -717,7 +812,7 @@ rule("Stack 2: Initialize")
 		// Stack Pointer
 		Global.Stack2[1] = 3;
 		// Stack in Use
-		GLobal.Stack2[2] = True;
+		Global.Stack2[2] = 1;
 	}
 }
 
@@ -767,6 +862,6 @@ rule("Stack 2: Free Stack")
 	actions
 	{
 		// Stack no longer in use
-		Global.Stack2[2] = False;
+		Global.Stack2[2] = 0;
 	}
 }

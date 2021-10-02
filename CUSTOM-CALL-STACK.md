@@ -31,7 +31,7 @@ Global.Stack[Index Of Array Value(Array Slice(Global.Stack, Global.Stack[0], Glo
 
 ```
 // variable1
-Global.Stack[Index Of Array Value(Global.Stack, Custom String("variable1") + 1]
+Global.Stack[Index Of Array Value(Global.Stack, Custom String("variable1")) + 1]
 ```
 
 **For loop**:
