@@ -77,12 +77,12 @@ variables
 		0: Constants
 		1: Stack1
 		2: Stack2
-		3: Board
-		4: TimerPlayer1
-		5: TimerPlayer2
-		6: PlayerTurn
-		7: h
-		8: i
+		3: Entities
+		4: Board
+		5: TimerPlayer1
+		6: TimerPlayer2
+		7: PlayerTurn
+		8: IsGameOngoing
 		9: j
 		10: k
 		11: l
@@ -140,11 +140,12 @@ subroutines
 	6: EndSubroutineStack2
 	7: FreeStack2
 	8: CreateMainMenu
-	9: SetCamera
-	10: CreateGame
-	11: CreatePiece
-	12: GetPlayerPosition
-	13: ChangeTurn
+	9: DestroyMainMenu
+	10: SetCamera
+	11: CreateGame
+	12: CreatePiece
+	13: GetPlayerPosition
+	14: ChangeTurn
 }
 
 // Inicialization of Variables
@@ -175,11 +176,17 @@ rule("Initialize")
 		Modify Global Variable(Constants, Append To Array, Custom String("TILE_SIZE"));
 		Modify Global Variable(Constants, Append To Array, -3.9);
 
+		// let IsGameOngoing = 0;
+		Set Global Variable(IsGameOngoing, 0);
+
 		// let TimerPlayer1 = -1;
 		Set Global Variable(TimerPlayer1, -1);
 
 		// let TimerPlayer2 = -1;
 		Set Global Variable(TimerPlayer2, -1);
+
+		// let Entities = [];
+		Set Global Variable(Entities, Empty Array);
 
 		Disable Built-In Game Mode Announcer;
 		Disable Built-In Game Mode Completion;
@@ -217,6 +224,7 @@ rule("Player: Select")
 	conditions
 	{
 		Global.Stack1[2] == 0;
+		Global.IsGameOngoing == 1;
 		Is Button Held(Event Player, Button(Melee)) == True;
 		!Is Dummy Bot(Event Player) == True;
 		((Team Of(Event Player) == Team 2 && Global.PlayerTurn == 2) || (Team Of(Event Player) == Team 1 && Global.PlayerTurn == 1)) == True;
@@ -227,16 +235,41 @@ rule("Player: Select")
 		// Prepare Stack
 		Call Subroutine(InitializeStack1);
 
+		// if (IsGameOngoing == 1)
+		If (Global.IsGameOngoing == 1);
+			
+		End;
+
 		// Sets return address
 		Call Subroutine(ReturnAddressStack1);
 
 		// let playerPosition = GetPlayerPosition();
 		Call Subroutine(GetPlayerPosition);
 
-		
-
 		// End thread. Free up stack for further use.
 		Call Subroutine(FreeStack1);
+	}
+}
+
+rule("Player: Menu Select")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Button(Melee)) == True;
+		!Is Dummy Bot(Event Player) == True;
+		Global.IsGameOngoing == 0;
+	}
+
+	actions 
+	{
+		
 	}
 }
 
@@ -432,7 +465,7 @@ rule("Create Main Menu")
 		// Sets Local Scope (FramePointer) with 0 Parameters
 		Global.Stack1[0] = Global.Stack1[1];
 
-		// Title
+		// let mainMenuTitle = new InWorldText(Players.All, "Overwatch Chess", new Vector(TOP_LEFT_VECTOR.X + TILE_SIZE * 4, 0, TOP_LEFT_VECTOR.Z + TILE_SIZE * 3), 4, Clipping.None, Reevaluation.Visible, Color.White, SpectatorVisibility.Default);
 		Create In-World Text(
 			All Players(All Teams),
 			Custom String("Overwatch Chess"),
@@ -445,10 +478,26 @@ rule("Create Main Menu")
 			Visible To,
 			Color(White),
 			Default Visibility);
+		Modify Global Variable(Entities, Append To Array, Custom String("main-menu-title"));
+		Modify Global Variable(Entities, Append To Array, Last Created Entity);
 
-		
+		// let mainMenuCredits = new InWorldText(Players.All, "by andyruwruw", new Vector(TOP_LEFT_VECTOR.X + TILE_SIZE * 4, 0, TOP_LEFT_VECTOR.Z + TILE_SIZE / 2 * 7), 1.5, Clipping.None, Reevaluation.Visible, Color.White, SpectatorVisibility.Default);
+		Create In-World Text(
+			All Players(All Teams),
+			Custom String("by andyruwruw"),
+			Vector(
+				X Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 4,
+				0,
+				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] / 2 * 7),
+			1.5,
+			Do Not Clip,
+			Visible To,
+			Color(White),
+			Default Visibility);
+		Modify Global Variable(Entities, Append To Array, Custom String("main-menu-credits"));
+		Modify Global Variable(Entities, Append To Array, Last Created Entity);
 
-		// Time Control Button
+		// let mainMenuTimeControlButton = new InWorldText(Players.All, Effect.Sphere, Color.Yellow, new Vector(TOP_LEFT_VECTOR.X + TILE_SIZE * 3, 0, TOP_LEFT_VECTOR.Z + TILE_SIZE * 4), 2, Reevaluation.VisiblePositionAndRadius);
 		Create Effect(
 			All Players(All Teams),
 			Sphere,
@@ -459,7 +508,10 @@ rule("Create Main Menu")
 				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 4),
 			2,
 			Visible To Position and Radius);
+		Modify Global Variable(Entities, Append To Array, Custom String("main-menu-time-control-button"));
+		Modify Global Variable(Entities, Append To Array, Last Created Entity);
 
+		// let mainMenuTimeControlText = new InWorldText(Players.All, "Time Control", new Vector(TOP_LEFT_VECTOR.X + TILE_SIZE * 3, 0, TOP_LEFT_VECTOR.Z + TILE_SIZE / 3 * 16), 1.5, Clipping.None, Reevaluation.Visible, Color.White, SpectatorVisibility.Default);
 		Create In-World Text(
 			All Players(All Teams),
 			Custom String("Time Control"),
@@ -472,8 +524,10 @@ rule("Create Main Menu")
 			Visible To,
 			Color(White),
 			Default Visibility);
+		Modify Global Variable(Entities, Append To Array, Custom String("main-menu-time-control-text"));
+		Modify Global Variable(Entities, Append To Array, Last Created Entity);
 
-		// Start Game Button
+		// let mainMenuStartButton = new InWorldText(Players.All, Effect.Sphere, Color.Green, new Vector(TOP_LEFT_VECTOR.X + TILE_SIZE * 5, 0, TOP_LEFT_VECTOR.Z + TILE_SIZE * 4), 2, Reevaluation.VisiblePositionAndRadius);
 		Create Effect(
 			All Players(All Teams),
 			Sphere,
@@ -484,7 +538,10 @@ rule("Create Main Menu")
 				Z Component Of(Global.Constants[Index Of Array Value(Global.Constants, Custom String("TOP_LEFT_VECTOR")) + 1]) + Global.Constants[Index Of Array Value(Global.Constants, Custom String("TILE_SIZE")) + 1] * 4),
 			2,
 			Visible To Position and Radius);
+		Modify Global Variable(Entities, Append To Array, Custom String("main-menu-start-button"));
+		Modify Global Variable(Entities, Append To Array, Last Created Entity);
 
+		// let mainMenuStartText = new InWorldText(Players.All, "Start Game", new Vector(TOP_LEFT_VECTOR.X + TILE_SIZE * 5, 0, TOP_LEFT_VECTOR.Z + TILE_SIZE / 3 * 16), 1.5, Clipping.None, Reevaluation.Visible, Color.White, SpectatorVisibility.Default);
 		Create In-World Text(
 			All Players(All Teams),
 			Custom String("Start Game"),
@@ -497,9 +554,47 @@ rule("Create Main Menu")
 			Visible To,
 			Color(White),
 			Default Visibility);
+		Modify Global Variable(Entities, Append To Array, Custom String("main-menu-start-text"));
+		Modify Global Variable(Entities, Append To Array, Last Created Entity);
 
 		// End Function
 		Call Subroutine(EndSubroutineStack1);
+	}
+}
+
+rule("Destroy Main Menu")
+{
+	event
+	{
+		Subroutine;
+		DestroyMainMenu;
+	}
+
+	actions
+	{
+		Destroy In-World Text(Global.Entities[Index Of Array Value(Global.Entities, Custom String("main-menu-title")) + 1]);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-title")) + 1);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-title")));
+
+		Destroy In-World Text(Global.Entities[Index Of Array Value(Global.Entities, Custom String("main-menu-credits")) + 1]);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-credits")) + 1);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-credits")));
+
+		Destroy Effect(Global.Entities[Index Of Array Value(Global.Entities, Custom String("main-menu-time-control-button")) + 1]);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-title")) + 1);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-title")));
+
+		Destroy In-World Text(Global.Entities[Index Of Array Value(Global.Entities, Custom String("main-menu-time-control-text")) + 1]);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-time-control-text")) + 1);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-time-control-text")));
+
+		Destroy Effect(Global.Entities[Index Of Array Value(Global.Entities, Custom String("main-menu-start-button")) + 1]);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-title")) + 1);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-title")));
+
+		Destroy In-World Text(Global.Entities[Index Of Array Value(Global.Entities, Custom String("main-menu-start-text")) + 1]);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-start-text")) + 1);
+		Modify Global Variable(Entities, Remove From Array By Index, Index Of Array Value(Global.Entities, Custom String("main-menu-start-text")));
 	}
 }
 
@@ -658,8 +753,8 @@ rule("Create Piece")
 			// if (hero == 1 || hero == 7)
 			If (Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("heroTeam")) + 1 + Global.Stack1[0]] == 1
 				|| Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("heroTeam")) + 1 + Global.Stack1[0]] == 7);
-				// let hero = Hero.McCree;
-				Global.Stack1[Global.Stack1[1] + 1] = Hero(McCree);
+				// let hero = Hero.Cassidy;
+				Global.Stack1[Global.Stack1[1] + 1] = Hero(Cassidy);
 			// else if (hero == 2 || hero == 8)
 			Else If (Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("heroTeam")) + 1 + Global.Stack1[0]] == 2
 				|| Global.Stack1[Index Of Array Value(Array Slice(Global.Stack1, Global.Stack1[0], Global.Stack1[1] - Global.Stack1[0]), Custom String("heroTeam")) + 1 + Global.Stack1[0]] == 8);
